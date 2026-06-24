@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
+const errorHandler = require("./middlewares/errorHandler");
 
 const app = express();
 
@@ -18,5 +19,7 @@ app.use(express.json());
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
+
+app.use(errorHandler);
 
 module.exports = app;
