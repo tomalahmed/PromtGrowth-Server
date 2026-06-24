@@ -54,22 +54,26 @@ class ApiFeatures {
     return this;
   }
 
-  async paginate() {
+  paginate() {
     const page = Math.max(parseInt(this.queryString.page, 10) || 1, 1);
     const limit = Math.max(parseInt(this.queryString.limit, 10) || 10, 1);
     const skip = (page - 1) * limit;
 
-    const filter =
-      typeof this.query.getFilter === "function"
-        ? this.query.getFilter()
-        : typeof this.query.getQuery === "function"
-          ? this.query.getQuery()
-          : {};
-
-    const totalCount = await this.query.model.countDocuments(filter);
+    this.pagination = {
+      page,
+      limit,
+      skip,
+    };
 
     this.query = this.query.skip(skip).limit(limit);
-    this.pagination = {
+
+    return this;
+  }
+
+  // Separate method to get pagination info after query execution
+  async getPaginationInfo(totalCount) {
+    const { page, limit } = this.pagination;
+    return {
       page,
       limit,
       totalCount,
@@ -77,8 +81,6 @@ class ApiFeatures {
       hasNextPage: page * limit < totalCount,
       hasPrevPage: page > 1,
     };
-
-    return this;
   }
 }
 
