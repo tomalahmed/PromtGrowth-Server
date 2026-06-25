@@ -70,6 +70,14 @@ class ApiFeatures {
     return this;
   }
 
+  getFilter() {
+    return this.query.getFilter();
+  }
+
+  async countDocuments(Model) {
+    return Model.countDocuments(this.getFilter());
+  }
+
   // Separate method to get pagination info after query execution
   async getPaginationInfo(totalCount) {
     const { page, limit } = this.pagination;

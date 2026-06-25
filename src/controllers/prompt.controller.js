@@ -7,20 +7,24 @@ const ApiFeatures = require("../utils/apiFeatures");
 // @route GET /api/prompts
 exports.getAllPrompts = async (req, res, next) => {
   try {
-    const query = Prompt.find({
+    const baseMatch = {
       status: "approved",
       visibility: "public",
-    }).populate("creator", "name email photoURL");
+    };
 
-    const features = new ApiFeatures(query, req.query);
+    const countQuery = Prompt.find(baseMatch);
+    const countFeatures = new ApiFeatures(countQuery, req.query);
+    countFeatures.search().filter();
+    const total = await countFeatures.countDocuments(Prompt);
+
+    const listQuery = Prompt.find(baseMatch).populate(
+      "creator",
+      "name email photoURL"
+    );
+    const features = new ApiFeatures(listQuery, req.query);
     features.search().filter().sort().paginate();
 
     const prompts = await features.query;
-    const total = await Prompt.countDocuments({
-      status: "approved",
-      visibility: "public",
-    });
-
     const paginationInfo = await features.getPaginationInfo(total);
 
     res.status(200).json({
