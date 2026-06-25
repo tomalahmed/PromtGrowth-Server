@@ -10,6 +10,7 @@ const bookmarkRoutes = require("./routes/bookmark.routes");
 const reviewRoutes = require("./routes/review.routes");
 const reportRoutes = require("./routes/report.routes");
 const paymentRoutes = require("./routes/payment.routes");
+const userRoutes = require("./routes/user.routes");
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/bookmarks", bookmarkRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/users", userRoutes);
 
 app.use(errorHandler);
 

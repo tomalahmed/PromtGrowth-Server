@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const {
+  getTopCreators,
+  getMyPrompts,
+  getAdminPrompts,
   getAllPrompts,
   getFeatured,
   getPromptById,
@@ -21,14 +24,14 @@ const verifyRole = require("../middlewares/verifyRole");
 // GET /api/prompts?search=&category=&aiTool=&difficulty=&sort=&page=&limit=
 router.get("/", getAllPrompts);
 
-// Get featured prompts for landing page
-// GET /api/prompts/featured
 router.get("/featured", getFeatured);
 
-// ===== PRIVATE ROUTES (require authentication) =====
+router.get("/top-creators", getTopCreators);
 
-// Get prompt by ID (with premium content lock)
-// GET /api/prompts/:id
+router.get("/me/mine", verifyToken, getMyPrompts);
+
+router.get("/admin/all", verifyToken, verifyRole("admin"), getAdminPrompts);
+
 router.get("/:id", verifyToken, getPromptById);
 
 // Create a new prompt (free users max 3)

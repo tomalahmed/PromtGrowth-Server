@@ -2,6 +2,144 @@ const Prompt = require("../models/Prompt.model");
 const User = require("../models/User.model");
 const ApiFeatures = require("../utils/apiFeatures");
 
+// @desc Get top creators by total copies and prompt count
+// @access Public
+// @route GET /api/prompts/top-creators
+exports.getTopCreators = async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 5, 1), 20);
+
+    const creators = await Prompt.aggregate([
+      { $match: { status: "approved" } },
+      {
+        $group: {
+          _id: "$creator",
+          promptCount: { $sum: 1 },
+          totalCopies: { $sum: "$copyCount" },
+        },
+      },
+      { $sort: { totalCopies: -1, promptCount: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "creator",
+        },
+      },
+      { $unwind: "$creator" },
+      {
+        $project: {
+          _id: "$creator._id",
+          name: "$creator.name",
+          email: "$creator.email",
+          photoURL: "$creator.photoURL",
+          role: "$creator.role",
+          promptCount: 1,
+          totalCopies: 1,
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: creators,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc Get current user's prompts
+// @access Private
+// @route GET /api/prompts/me/mine
+exports.getMyPrompts = async (req, res, next) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const skip = (page - 1) * limit;
+    const status = req.query.status;
+
+    const filter = { creator: req.user.id };
+    if (status) filter.status = status;
+
+    const [prompts, total] = await Promise.all([
+      Prompt.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("creator", "name email photoURL"),
+      Prompt.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total,
+      results: prompts.length,
+      pagination: {
+        page,
+        limit,
+        totalCount: total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
+      data: prompts,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc Get all prompts for admin moderation
+// @access Private (admin)
+// @route GET /api/prompts/admin/all
+exports.getAdminPrompts = async (req, res, next) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
+    const skip = (page - 1) * limit;
+    const status = req.query.status;
+    const search = req.query.search?.trim();
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { category: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const [prompts, total] = await Promise.all([
+      Prompt.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("creator", "name email photoURL role"),
+      Prompt.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total,
+      results: prompts.length,
+      pagination: {
+        page,
+        limit,
+        totalCount: total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
+      data: prompts,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc Get all public approved prompts with filters, search, sort, pagination
 // @access Public
 // @route GET /api/prompts

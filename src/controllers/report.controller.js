@@ -1,5 +1,6 @@
 const Report = require("../models/Report.model");
 const Prompt = require("../models/Prompt.model");
+const User = require("../models/User.model");
 
 const isValidObjectId = (id) => id && /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -71,7 +72,11 @@ exports.getAllReports = async (req, res, next) => {
         .skip(skip)
         .limit(limit)
         .populate("user", "name email")
-        .populate("prompt", "title"),
+        .populate({
+          path: "prompt",
+          select: "title creator",
+          populate: { path: "creator", select: "name email" },
+        }),
       Report.countDocuments(filter),
     ]);
 
@@ -88,6 +93,62 @@ exports.getAllReports = async (req, res, next) => {
         hasPrevPage: page > 1,
       },
       data: reports,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.updateReport = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid report ID" });
+    }
+
+    if (!["dismiss", "warn", "remove-prompt"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action must be dismiss, warn, or remove-prompt",
+      });
+    }
+
+    const report = await Report.findById(id).populate({
+      path: "prompt",
+      populate: { path: "creator", select: "_id name email" },
+    });
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
+
+    if (action === "dismiss") {
+      report.status = "dismissed";
+      await report.save();
+    } else if (action === "warn") {
+      report.status = "resolved";
+      await report.save();
+    } else if (action === "remove-prompt") {
+      const promptId = report.prompt?._id || report.prompt;
+
+      if (promptId) {
+        const prompt = await Prompt.findById(promptId);
+        if (prompt) {
+          await Prompt.findByIdAndDelete(promptId);
+          await User.findByIdAndUpdate(prompt.creator, { $inc: { promptCount: -1 } });
+        }
+      }
+
+      report.status = "resolved";
+      await report.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Report ${action === "dismiss" ? "dismissed" : "resolved"} successfully`,
+      data: report,
     });
   } catch (error) {
     return next(error);
