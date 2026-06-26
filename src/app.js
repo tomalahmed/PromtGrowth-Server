@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
-const mongoSanitize = require("express-mongo-sanitize");
+const sanitizeInput = require("./middlewares/sanitizeInput");
 const errorHandler = require("./middlewares/errorHandler");
 const { apiLimiter } = require("./middlewares/rateLimiter");
 const { handleWebhook } = require("./controllers/payment.controller");
@@ -21,7 +21,7 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, ""),
     credentials: true,
   })
 );
@@ -34,7 +34,7 @@ app.post(
 
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
-app.use(mongoSanitize());
+app.use(sanitizeInput);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
