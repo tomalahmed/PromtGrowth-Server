@@ -1,6 +1,7 @@
 const Prompt = require("../models/Prompt.model");
 const User = require("../models/User.model");
 const ApiFeatures = require("../utils/apiFeatures");
+const { clampPage, clampLimit } = require("../utils/pagination");
 const {
   applyDemoCreatorFilter,
   assertPromptVisibleToViewer,
@@ -74,8 +75,8 @@ exports.getTopCreators = async (req, res, next) => {
 // @route GET /api/prompts/me/mine
 exports.getMyPrompts = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit);
     const skip = (page - 1) * limit;
     const status = req.query.status;
 
@@ -115,8 +116,8 @@ exports.getMyPrompts = async (req, res, next) => {
 // @route GET /api/prompts/admin/all
 exports.getAdminPrompts = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit, 20);
     const skip = (page - 1) * limit;
     const status = req.query.status;
     const search = req.query.search?.trim();

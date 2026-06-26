@@ -74,8 +74,9 @@ exports.checkBookmark = async (req, res, next) => {
 
 exports.getMyBookmarks = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 9, 1);
+    const { clampPage, clampLimit } = require("../utils/pagination");
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit, 9);
     const skip = (page - 1) * limit;
 
     const [bookmarks, total] = await Promise.all([

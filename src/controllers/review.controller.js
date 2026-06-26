@@ -7,6 +7,7 @@ const {
   getDemoUserIds,
   isDemoViewer,
 } = require("../utils/demoScope");
+const { clampPage, clampLimit } = require("../utils/pagination");
 
 const isValidObjectId = (id) => id && /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -98,8 +99,8 @@ exports.createReview = async (req, res, next) => {
 exports.getPromptReviews = async (req, res, next) => {
   try {
     const { promptId } = req.params;
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 5, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit, 5);
     const skip = (page - 1) * limit;
 
     if (!isValidObjectId(promptId)) {
@@ -146,8 +147,8 @@ exports.getPromptReviews = async (req, res, next) => {
 
 exports.getMyReviews = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit, 10);
     const skip = (page - 1) * limit;
 
     const [reviews, total] = await Promise.all([
@@ -181,7 +182,7 @@ exports.getMyReviews = async (req, res, next) => {
 
 exports.getRecentReviews = async (req, res, next) => {
   try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 3, 1), 12);
+    const limit = clampLimit(req.query.limit, 12);
 
     let reviewFilter = {};
     if (isDemoViewer(req)) {

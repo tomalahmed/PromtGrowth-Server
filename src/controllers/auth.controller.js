@@ -3,14 +3,23 @@ const { validationResult } = require("express-validator");
 
 const User = require("../models/User.model");
 const generateToken = require("../utils/generateToken");
+const { verifyFirebaseIdToken } = require("../config/firebaseAdmin");
+const { isProduction } = require("../config/env");
+const { assertDemoLoginAllowed } = require("../utils/demoScope");
 
-const buildCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-});
+const buildCookieOptions = () => {
+  const sameSite =
+    process.env.COOKIE_SAME_SITE ||
+    (isProduction ? "lax" : "lax");
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite,
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+};
 
 const sendAuthResponse = (res, user, statusCode = 200) => {
   const token = generateToken({
@@ -83,6 +92,8 @@ const login = async (req, res, next) => {
     const { email, password } = req.body;
     const normalizedEmail = email.trim().toLowerCase();
 
+    assertDemoLoginAllowed(normalizedEmail);
+
     const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user || !user.password) {
@@ -120,7 +131,7 @@ const logout = async (req, res) => {
 
 const getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -140,21 +151,51 @@ const getMe = async (req, res, next) => {
 
 const googleSync = async (req, res, next) => {
   try {
-    const { name, email, photoURL, firebaseUid } = req.body;
+    const errors = validationResult(req);
 
-    if (!name || !email || !firebaseUid) {
+    if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: "name, email, and firebaseUid are required",
+        message: errors.array()[0].msg,
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const { idToken, name, email, photoURL } = req.body;
+
+    let decoded;
+
+    try {
+      decoded = await verifyFirebaseIdToken(idToken);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired Google sign-in token",
+      });
+    }
+
+    const normalizedEmail = (decoded.email || email || "").trim().toLowerCase();
+    const firebaseUid = decoded.uid;
+
+    if (!normalizedEmail || !firebaseUid) {
+      return res.status(400).json({
+        success: false,
+        message: "Google account must include email and uid",
+      });
+    }
+
+    if (email && email.trim().toLowerCase() !== normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Email does not match verified Google account",
+      });
+    }
+
+    assertDemoLoginAllowed(normalizedEmail);
 
     const updateFields = {
-      name: name.trim(),
+      name: (name || decoded.name || "User").trim(),
       email: normalizedEmail,
-      photoURL: photoURL?.trim() || "",
+      photoURL: photoURL?.trim() || decoded.picture || "",
       firebaseUid,
     };
 
@@ -181,44 +222,11 @@ const googleSync = async (req, res, next) => {
   }
 };
 
-const seedAdminUser = async () => {
-  const adminEmail = process.env.ADMIN_EMAIL;
-  const adminPassword = process.env.ADMIN_PASSWORD;
-
-  if (!adminEmail || !adminPassword) {
-    return;
-  }
-
-  const existingAdmin = await User.findOne({ email: adminEmail.trim().toLowerCase(), role: "admin" });
-
-  if (existingAdmin) {
-    return;
-  }
-
-  const existingUser = await User.findOne({ email: adminEmail.trim().toLowerCase() });
-
-  if (existingUser) {
-    existingUser.role = "admin";
-    existingUser.password = adminPassword;
-    existingUser.firebaseUid = undefined;
-    await existingUser.save();
-    return;
-  }
-
-  await User.create({
-    name: "Admin",
-    email: adminEmail.trim().toLowerCase(),
-    password: adminPassword,
-    role: "admin",
-  });
-};
-
 module.exports = {
   register,
   login,
   logout,
   getMe,
   googleSync,
-  seedAdminUser,
   buildCookieOptions,
 };

@@ -12,6 +12,8 @@ const {
   isDemoEmail,
   isDemoViewer,
 } = require("../utils/demoScope");
+const escapeRegex = require("../utils/escapeRegex");
+const { clampPage, clampLimit } = require("../utils/pagination");
 
 const isValidObjectId = (id) => id && /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -246,19 +248,17 @@ exports.getAdminAnalytics = async (req, res, next) => {
 
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit);
     const skip = (page - 1) * limit;
     const role = req.query.role;
-    const search = req.query.search?.trim();
+    const search = req.query.search?.trim()?.slice(0, 100);
 
     const filter = await applyDemoUserFilter({}, req);
     if (role) filter.role = role;
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ];
+      const regex = new RegExp(escapeRegex(search), "i");
+      filter.$or = [{ name: regex }, { email: regex }];
     }
 
     const [users, total] = await Promise.all([

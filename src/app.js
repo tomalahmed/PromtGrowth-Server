@@ -2,7 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
+const mongoSanitize = require("express-mongo-sanitize");
 const errorHandler = require("./middlewares/errorHandler");
+const { apiLimiter } = require("./middlewares/rateLimiter");
 const { handleWebhook } = require("./controllers/payment.controller");
 const authRoutes = require("./routes/auth.routes");
 const promptRoutes = require("./routes/prompt.routes");
@@ -13,6 +15,8 @@ const paymentRoutes = require("./routes/payment.routes");
 const userRoutes = require("./routes/user.routes");
 
 const app = express();
+
+app.set("trust proxy", 1);
 
 app.use(helmet());
 app.use(
@@ -29,12 +33,14 @@ app.post(
 );
 
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(mongoSanitize());
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.use("/api", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/prompts", promptRoutes);
 app.use("/api/bookmarks", bookmarkRoutes);
@@ -42,6 +48,13 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/users", userRoutes);
+
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API route not found",
+  });
+});
 
 app.use(errorHandler);
 

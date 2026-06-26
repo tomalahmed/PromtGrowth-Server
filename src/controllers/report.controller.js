@@ -6,6 +6,7 @@ const {
   getDemoUserIds,
   isDemoViewer,
 } = require("../utils/demoScope");
+const { clampPage, clampLimit } = require("../utils/pagination");
 
 const isValidObjectId = (id) => id && /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -61,8 +62,8 @@ exports.createReport = async (req, res, next) => {
 
 exports.getAllReports = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
+    const page = clampPage(req.query.page);
+    const limit = clampLimit(req.query.limit);
     const skip = (page - 1) * limit;
     const status = req.query.status;
 

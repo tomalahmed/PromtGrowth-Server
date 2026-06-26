@@ -6,13 +6,15 @@ class ApiFeatures {
   }
 
   search() {
+    const escapeRegex = require("./escapeRegex");
     const searchTerm = this.queryString.search?.trim();
 
     if (!searchTerm) {
       return this;
     }
 
-    const regex = new RegExp(searchTerm, "i");
+    const capped = searchTerm.slice(0, 100);
+    const regex = new RegExp(escapeRegex(capped), "i");
 
     this.query = this.query.find({
       $or: [{ title: regex }, { tags: regex }, { aiTool: regex }],
@@ -26,8 +28,10 @@ class ApiFeatures {
     const filters = {};
 
     for (const field of filterFields) {
-      if (this.queryString[field]) {
-        filters[field] = this.queryString[field];
+      const value = this.queryString[field];
+
+      if (typeof value === "string" && value.trim()) {
+        filters[field] = value.trim();
       }
     }
 
@@ -55,8 +59,9 @@ class ApiFeatures {
   }
 
   paginate() {
-    const page = Math.max(parseInt(this.queryString.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(this.queryString.limit, 10) || 10, 1);
+    const { clampPage, clampLimit } = require("./pagination");
+    const page = clampPage(this.queryString.page);
+    const limit = clampLimit(this.queryString.limit);
     const skip = (page - 1) * limit;
 
     this.pagination = {
@@ -78,7 +83,6 @@ class ApiFeatures {
     return Model.countDocuments(this.getFilter());
   }
 
-  // Separate method to get pagination info after query execution
   async getPaginationInfo(totalCount) {
     const { page, limit } = this.pagination;
     return {

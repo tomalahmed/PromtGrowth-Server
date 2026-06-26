@@ -15,6 +15,21 @@ function isDemoEmail(email) {
   return DEMO_EMAILS.includes(String(email).trim().toLowerCase());
 }
 
+function isDemoAllowed() {
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  return process.env.ENABLE_DEMO === "true";
+}
+
+function assertDemoLoginAllowed(email) {
+  if (!isDemoAllowed() && isDemoEmail(email)) {
+    const error = new Error("Demo accounts are disabled in this environment");
+    error.statusCode = 403;
+    throw error;
+  }
+}
+
 function isDemoViewer(req) {
   return Boolean(req.user && isDemoEmail(req.user.email));
 }
@@ -77,6 +92,8 @@ function clearDemoUserIdCache() {
 module.exports = {
   DEMO_EMAILS,
   isDemoEmail,
+  isDemoAllowed,
+  assertDemoLoginAllowed,
   isDemoViewer,
   getDemoUserIds,
   applyDemoCreatorFilter,
