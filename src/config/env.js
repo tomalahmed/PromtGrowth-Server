@@ -18,6 +18,9 @@ function validateEnv() {
 
   if (isProduction) {
     requireEnv("CLIENT_URL");
+    requireEnv("FIREBASE_PROJECT_ID");
+    requireEnv("FIREBASE_CLIENT_EMAIL");
+    requireEnv("FIREBASE_PRIVATE_KEY");
 
     if (!process.env.STRIPE_SECRET_KEY?.trim()) {
       console.warn(

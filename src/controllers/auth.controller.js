@@ -3,7 +3,7 @@ const { validationResult } = require("express-validator");
 
 const User = require("../models/User.model");
 const generateToken = require("../utils/generateToken");
-const { verifyFirebaseIdToken } = require("../config/firebaseAdmin");
+const { verifyFirebaseIdToken, getGoogleSyncErrorMessage } = require("../config/firebaseAdmin");
 const { assertDemoLoginAllowed } = require("../utils/demoScope");
 
 const buildCookieOptions = (req) => {
@@ -176,9 +176,12 @@ const googleSync = async (req, res, next) => {
     try {
       decoded = await verifyFirebaseIdToken(idToken);
     } catch (error) {
-      return res.status(401).json({
+      const statusCode = error.statusCode || 401;
+      console.error("[google-sync] Token verification failed:", error.message);
+
+      return res.status(statusCode).json({
         success: false,
-        message: "Invalid or expired Google sign-in token",
+        message: getGoogleSyncErrorMessage(error),
       });
     }
 

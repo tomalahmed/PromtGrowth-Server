@@ -13,6 +13,7 @@ const reviewRoutes = require("./routes/review.routes");
 const reportRoutes = require("./routes/report.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const userRoutes = require("./routes/user.routes");
+const { getFirebaseAdminStatus } = require("./config/firebaseAdmin");
 
 const app = express();
 
@@ -55,7 +56,20 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  const firebase = getFirebaseAdminStatus();
+
+  res.status(200).json({
+    status: "ok",
+    firebase: {
+      configured: firebase.configured,
+      projectId: firebase.projectId,
+      hasClientEmail: firebase.hasClientEmail,
+      hasPrivateKey: firebase.hasPrivateKey,
+      ...(firebase.initError && !firebase.configured
+        ? { error: "Firebase Admin failed to initialize" }
+        : {}),
+    },
+  });
 });
 
 app.use("/api", apiLimiter);
