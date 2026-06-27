@@ -1,4 +1,3 @@
-const { isProduction } = require("./env");
 const { initializeApp, getApps, getApp, cert } = require("firebase-admin");
 const { getAuth } = require("firebase-admin/auth");
 
